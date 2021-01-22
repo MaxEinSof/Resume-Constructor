@@ -5,7 +5,7 @@
             :value="subtitleValue"
             :disabled="isDisabled"
             @input="updateSubtitleValue"
-            ref="input"
+            v-focus
         >
 
         <textarea
@@ -52,7 +52,14 @@ export default {
         }
     },
     mounted() {
-        this.$refs.textarea.style.height = `${this.$refs.textarea.scrollHeight + 5}px`;
+        this.setTextareaHeight();
+    },
+    directives: {
+        focus: {
+            updated(el) {
+                el.focus();
+            },
+        }
     },
     props: {
         id: {
@@ -67,6 +74,10 @@ export default {
             type: String,
             required: true,
         },
+        infoBlocks: {
+            type: Array,
+            required: true,
+        },
     },
     emits: {
         'update:subtitleValue'(value) {
@@ -75,14 +86,14 @@ export default {
         'update:textValue'(value) {
             return !!value;
         },
-        'upload'(id, textarea) {
-            return !!(id && textarea);
-        },
-        'delete'(id) {
-            return !!id;
-        },
+        'update-info-blocks': null,
+        'show-alert': null,
     },
     methods: {
+        setTextareaHeight() {
+            this.$refs.textarea.style.height = '0px';
+            this.$refs.textarea.style.height = `${this.$refs.textarea.scrollHeight + 5}px`;
+        },
         updateSubtitleValue(evt) {
             this.$emit('update:subtitleValue', evt.target.value);
         },
@@ -92,16 +103,60 @@ export default {
         toggleEditMode() {
             this.isDisabled = !this.isDisabled;
 
-            if (!this.isDisabled) {
-                setTimeout(() => {
-                    this.$refs.input.focus();
-                }, 0);
-            } else {
-                this.$emit('upload', this.id, this.$refs.textarea);
+            if (this.isDisabled) {
+                this.uploadEditedInfoBlock();
             }
         },
-        deleteInfoBlock () {
-            this.$emit('delete', this.id);
+        async uploadEditedInfoBlock() {
+            try {
+                this.setTextareaHeight();
+
+                const editedInfo = {
+                    subtitle: this.subtitleValue,
+                    text: this.textValue,
+                };
+
+                await fetch(`https://resume-constructor-99816-default-rtdb.firebaseio.com/resumeData/infoBlocks/${this.id}.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(editedInfo),
+                });
+
+                this.$emit('show-alert', {
+                    type: 'primary',
+                    title: 'Успех',
+                    text: `Блок "${this.subtitleValue}" был успешно отредактирован`,
+                });
+
+            } catch (e) {
+                this.$emit('show-alert', {
+                    type: 'danger',
+                    title: 'Ошибка',
+                    text: e.message,
+                });
+            }
+        },
+        async deleteInfoBlock() {
+            try {
+                await fetch(`https://resume-constructor-99816-default-rtdb.firebaseio.com/resumeData/infoBlocks/${this.id}.json`, {
+                    method: 'DELETE',
+                });
+
+                const infoBlocks = this.infoBlocks.filter(block => block.id !== this.id);
+                this.$emit('update-info-blocks', infoBlocks);
+
+                this.$emit('show-alert', {
+                    type: 'primary',
+                    title: 'Успех',
+                    text: `Блок "${this.subtitleValue}" был успешно удалён`,
+                });
+
+            } catch (e) {
+                this.$emit('show-alert', {
+                    type: 'danger',
+                    title: 'Ошибка',
+                    text: e.message,
+                });
+            }
         },
     },
 }

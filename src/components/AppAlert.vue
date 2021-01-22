@@ -8,7 +8,9 @@
 <script>
 export default {
     mounted() {
-        this.$emit('hide-alert');
+        setTimeout(() => {
+            this.$emit('hide-alert');
+        }, 4000);
     },
     props: {
         alert: {
